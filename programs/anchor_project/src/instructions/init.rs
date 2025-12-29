@@ -1,6 +1,6 @@
 use crate::*;
 
-pub fn init(ctx: Context<Initialize>, spread_bps: u64) -> Result<()> {
+pub fn init(ctx: Context<Init>, spread_bps: u64) -> Result<()> {
     ctx.accounts.state_account.spread_bps = spread_bps;
     ctx.accounts.state_account.x_to_y_scaled_price = 0;
     ctx.accounts.state_account.authority = ctx.accounts.user.key();
@@ -26,7 +26,7 @@ pub struct Init<'a> {
     #[account(
         init,
         payer = user,
-        token::mint = token_x_mint,
+        token::mint = token_y_mint,
         token::authority = state_account,
     )]
     pub token_y_account: Account<'a, TokenAccount>,

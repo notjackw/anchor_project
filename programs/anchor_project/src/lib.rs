@@ -2,6 +2,7 @@ pub use anchor_lang::prelude::*;
 pub use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
 
 pub mod instructions;
+use instructions::*;
 // Accounts:
 // this program
 //
@@ -21,17 +22,14 @@ declare_id!("HkyxYeSTPPpVbJHyYZh53w5sLZ7ZHsNrgDT2DPGQmQQp");
 pub mod contract {
     use super::*;
 
-    pub fn init(ctx: Context<instructions::Init>, spread_bps: u64) -> Result<()> {
+    pub fn init(ctx: Context<Init>, spread_bps: u64) -> Result<()> {
         instructions::init(ctx, spread_bps)
     }
-    pub fn update_price(
-        ctx: Context<instructions::UpdatePrice>,
-        x_to_y_scaled_price: u64,
-    ) -> Result<()> {
+    pub fn update_price(ctx: Context<UpdatePrice>, x_to_y_scaled_price: u64) -> Result<()> {
         instructions::update_price(ctx, x_to_y_scaled_price)
     }
     pub fn swap_exact_in(
-        ctx: Context<instructions::SwapExactIn>,
+        ctx: Context<SwapExactIn>,
         input_amount: u64,
         input_is_x: bool,
         min_out_amount: u64,
