@@ -22,3 +22,8 @@ TODO:
         - add an argument `curr_time` to every tx. 
         - add state variable `exp_duration`.
         - in the handler, compare given_time to `Clock::now()` at the very end (after all CPIs), return Err if it exceeds duration. All CPIs are undone if Err is returned. 
+
+## Citations
+Inspiration was taken from the following sources. 
+- https://github.com/solana-developers/program-examples/tree/main/tokens/token-swap
+- https://examples.anchor-lang.com/docs/non-custodial-escrow
