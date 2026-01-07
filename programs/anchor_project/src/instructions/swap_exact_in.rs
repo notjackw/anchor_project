@@ -1,6 +1,7 @@
 use crate::*;
-/**
- * swap_exact_in (I want to buy 100 Solana of USD)
+/** swap_exact_in
+ * give [100] Solana, get [x > min_out_amount] USD
+ *
  * Parameters:
  * token_in		    USDC
  * token_out		SOL
@@ -15,7 +16,7 @@ pub fn swap_exact_in(
     min_out_amount: u64,
 ) -> Result<()> {
     // This was a common check across codebases that I saw:
-    // If user tries to input more than it has, transfer entire user balance (instead of failing)
+    // If input_amount exceeds user's balance, transfer their balance instead.
     let input_amount = if input_is_x && input_amount > ctx.accounts.user_token_x_acct.amount {
         ctx.accounts.user_token_x_acct.amount
     } else if !input_is_x && input_amount > ctx.accounts.user_token_y_acct.amount {
@@ -36,17 +37,15 @@ pub fn swap_exact_in(
 
     if input_is_x {
         // transfer <provided_amount> of x from user to vault
-        let transfer_accounts = anchor_spl::token::Transfer {
-            from: ctx.accounts.user_token_x_acct.to_account_info(),
-            to: ctx.accounts.vault_token_x_acct.to_account_info(),
-            authority: ctx.accounts.user_wallet.to_account_info(),
-        };
-        let cpi_ctx = CpiContext::new(
+        transfer_user_to_vault(
+            ctx.accounts.user_token_x_acct.to_account_info(),
+            ctx.accounts.vault_token_x_acct.to_account_info(),
+            ctx.accounts.user_wallet.to_account_info(),
+            input_amount,
             ctx.accounts.token_program.to_account_info(),
-            transfer_accounts,
-        );
-        anchor_spl::token::transfer(cpi_ctx, input_amount)?;
+        )?;
 
+        // use u128 during calcs to prevent overflow during mul
         // calculate amount of y
         let mut calculated_y_amount: u64 = (input_amount as u128)
             .checked_mul(StateAccount::PRICE_SCALE_FACTOR)
@@ -88,17 +87,15 @@ pub fn swap_exact_in(
         anchor_spl::token::transfer(cpi_ctx, calculated_y_amount)?;
     } else {
         // transfer <provided_amount> of y from user to vault
-        let transfer_accounts = anchor_spl::token::Transfer {
-            from: ctx.accounts.user_token_y_acct.to_account_info(),
-            to: ctx.accounts.vault_token_y_acct.to_account_info(),
-            authority: ctx.accounts.user_wallet.to_account_info(),
-        };
-        let cpi_ctx = CpiContext::new(
+        transfer_user_to_vault(
+            ctx.accounts.user_token_y_acct.to_account_info(),
+            ctx.accounts.vault_token_y_acct.to_account_info(),
+            ctx.accounts.user_wallet.to_account_info(),
+            input_amount,
             ctx.accounts.token_program.to_account_info(),
-            transfer_accounts,
-        );
-        anchor_spl::token::transfer(cpi_ctx, input_amount)?;
+        )?;
 
+        // use u128 during calcs to prevent overflow during mul
         // calculate amount of x
         let mut calculated_x_amount: u64 = (input_amount as u128)
             .checked_mul(ctx.accounts.state_account.x_to_y_scaled_price as u128)
@@ -148,17 +145,19 @@ pub fn swap_exact_in(
 pub struct SwapExactIn<'a> {
     user_wallet: Signer<'a>,
     #[account(
+        mut,
         token::mint = token_x_mint,
         token::authority = user_wallet,
     )]
     user_token_x_acct: Account<'a, TokenAccount>,
     #[account(
+        mut,
         token::mint = token_y_mint,
         token::authority = user_wallet,
     )]
     user_token_y_acct: Account<'a, TokenAccount>,
 
-    // Used for signing token xfers and holding price/fee data
+    // Tx will fail if user provides incorrect x_mint and y_mint
     #[account(
         mut,
         seeds = [b"state", token_x_mint.key().as_ref(), token_y_mint.key().as_ref()],
@@ -166,11 +165,13 @@ pub struct SwapExactIn<'a> {
     )]
     state_account: Account<'a, StateAccount>,
     #[account(
+        mut,
         token::mint = token_x_mint,
         token::authority = state_account,
     )]
     vault_token_x_acct: Account<'a, TokenAccount>,
     #[account(
+        mut,
         token::mint = token_y_mint,
         token::authority = state_account,
     )]

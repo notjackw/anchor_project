@@ -1,4 +1,5 @@
 pub use anchor_lang::prelude::*;
+pub use anchor_spl::associated_token::AssociatedToken;
 pub use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
 
 pub mod instructions;
@@ -19,14 +20,18 @@ use instructions::*;
 declare_id!("HkyxYeSTPPpVbJHyYZh53w5sLZ7ZHsNrgDT2DPGQmQQp");
 
 #[program]
-pub mod contract {
+pub mod anchor_project {
     use super::*;
 
     pub fn init(ctx: Context<Init>, spread_bps: u64) -> Result<()> {
         instructions::init(ctx, spread_bps)
     }
-    pub fn update_price(ctx: Context<UpdatePrice>, x_to_y_scaled_price: u64) -> Result<()> {
-        instructions::update_price(ctx, x_to_y_scaled_price)
+    pub fn update_params(
+        ctx: Context<UpdateParams>,
+        x_to_y_scaled_price: Option<u64>,
+        spread_bps: Option<u64>,
+    ) -> Result<()> {
+        instructions::update_params(ctx, x_to_y_scaled_price, spread_bps)
     }
     pub fn swap_exact_in(
         ctx: Context<SwapExactIn>,
@@ -36,9 +41,14 @@ pub mod contract {
     ) -> Result<()> {
         instructions::swap_exact_in(ctx, input_amount, input_is_x, min_out_amount)
     }
-    // pub fn swap_exact_out(ctx: Context<SwapExactOut>) -> Result<()> {
-    //     instructions::swap_exact_out(ctx, output_amount)
-    // }
+    pub fn swap_exact_out(
+        ctx: Context<SwapExactOut>,
+        output_amount: u64,
+        output_is_x: bool,
+        max_in_amount: u64,
+    ) -> Result<()> {
+        instructions::swap_exact_out(ctx, output_amount, output_is_x, max_in_amount)
+    }
 }
 
 #[account]
@@ -65,4 +75,8 @@ impl StateAccount {
 pub enum WasabiError {
     #[msg("Output is below the minimum expected")]
     OutputTooSmall,
+    #[msg("Required Input is above the maximum expected")]
+    InputTooLarge,
+    #[msg("User does not have enough balance to get desired output amount")]
+    UserInsufficientBalance,
 }

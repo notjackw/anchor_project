@@ -1,8 +1,11 @@
 use crate::*;
 
 pub fn init(ctx: Context<Init>, spread_bps: u64) -> Result<()> {
+    // Configurable params
     ctx.accounts.state_account.spread_bps = spread_bps;
     ctx.accounts.state_account.x_to_y_scaled_price = 0;
+
+    // Can only be set during init
     ctx.accounts.state_account.authority = ctx.accounts.user.key();
     Ok(())
 }
@@ -18,16 +21,16 @@ pub struct Init<'a> {
     #[account(
         init,
         payer = user,
-        token::mint = token_x_mint,
-        token::authority = state_account,
+        associated_token::mint = token_x_mint,
+        associated_token::authority = state_account,
     )]
     pub token_x_account: Account<'a, TokenAccount>,
 
     #[account(
         init,
         payer = user,
-        token::mint = token_y_mint,
-        token::authority = state_account,
+        associated_token::mint = token_y_mint,
+        associated_token::authority = state_account,
     )]
     pub token_y_account: Account<'a, TokenAccount>,
 
@@ -43,4 +46,5 @@ pub struct Init<'a> {
     // need this for creating accounts
     pub system_program: Program<'a, System>,
     pub token_program: Program<'a, Token>,
+    pub associated_token_program: Program<'a, AssociatedToken>,
 }
