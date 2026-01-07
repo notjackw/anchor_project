@@ -23,15 +23,16 @@ declare_id!("HkyxYeSTPPpVbJHyYZh53w5sLZ7ZHsNrgDT2DPGQmQQp");
 pub mod anchor_project {
     use super::*;
 
-    pub fn init(ctx: Context<Init>, spread_bps: u64) -> Result<()> {
-        instructions::init(ctx, spread_bps)
+    pub fn init(ctx: Context<Init>, spread_bps: u64, tx_exp_duration: i64) -> Result<()> {
+        instructions::init(ctx, spread_bps, tx_exp_duration)
     }
     pub fn update_params(
         ctx: Context<UpdateParams>,
         x_to_y_scaled_price: Option<u64>,
         spread_bps: Option<u64>,
+        tx_exp_duration: Option<i64>,
     ) -> Result<()> {
-        instructions::update_params(ctx, x_to_y_scaled_price, spread_bps)
+        instructions::update_params(ctx, x_to_y_scaled_price, spread_bps, tx_exp_duration)
     }
     pub fn swap_exact_in(
         ctx: Context<SwapExactIn>,
@@ -62,6 +63,9 @@ pub struct StateAccount {
 
     // Units are basis points (100bps == 1%)
     spread_bps: u64,
+
+    // Expiration timer (seconds)
+    pub tx_exp_duration: i64,
 }
 impl StateAccount {
     // Increase precision of price ratio
@@ -79,4 +83,6 @@ pub enum WasabiError {
     InputTooLarge,
     #[msg("User does not have enough balance to get desired output amount")]
     UserInsufficientBalance,
+    #[msg("Transaction timed out")]
+    ExpirationError,
 }

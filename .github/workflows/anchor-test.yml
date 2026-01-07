@@ -1,0 +1,35 @@
+name: Anchor Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  anchor-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Solana
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+          solana --version
+
+      - name: Install Anchor
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor avm --locked
+          avm install latest
+          avm use latest
+          anchor --version
+
+      - name: Install JS deps
+        run: npm ci
+
+      - name: Run anchor test
+        run: anchor test

@@ -1,8 +1,9 @@
 use crate::*;
 
-pub fn init(ctx: Context<Init>, spread_bps: u64) -> Result<()> {
+pub fn init(ctx: Context<Init>, spread_bps: u64, tx_exp_duration: i64) -> Result<()> {
     // Configurable params
     ctx.accounts.state_account.spread_bps = spread_bps;
+    ctx.accounts.state_account.tx_exp_duration = tx_exp_duration;
     ctx.accounts.state_account.x_to_y_scaled_price = 0;
 
     // Can only be set during init

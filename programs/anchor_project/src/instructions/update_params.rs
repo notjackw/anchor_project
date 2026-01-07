@@ -4,6 +4,7 @@ pub fn update_params(
     ctx: Context<UpdateParams>,
     x_to_y_scaled_price: Option<u64>,
     spread_bps: Option<u64>,
+    tx_exp_duration: Option<i64>,
 ) -> Result<()> {
     // Update the provided fields
     if let Some(x_to_y_scaled_price) = x_to_y_scaled_price {
@@ -11,6 +12,9 @@ pub fn update_params(
     }
     if let Some(spread_bps) = spread_bps {
         ctx.accounts.state_account.spread_bps = spread_bps;
+    }
+    if let Some(tx_exp_duration) = tx_exp_duration {
+        ctx.accounts.state_account.tx_exp_duration = tx_exp_duration;
     }
     // return
     Ok(())

@@ -1,4 +1,5 @@
 use crate::*;
+use anchor_lang::solana_program::clock::Clock;
 
 pub fn swap_exact_out(
     ctx: Context<SwapExactOut>,
@@ -6,13 +7,21 @@ pub fn swap_exact_out(
     output_is_x: bool,
     max_in_amount: u64,
 ) -> Result<()> {
+    // Start timer
+    let start_time = Clock::get()?.unix_timestamp;
+
     if output_is_x {
+        // Output from vault is X
+        // User puts in Y
+
+        // 1. Calculate base input (Y) derived from output (X) * Price (Y/X)
         let taxed_input = (output_amount as u128)
-            .checked_mul(StateAccount::PRICE_SCALE_FACTOR)
+            .checked_mul(ctx.accounts.state_account.x_to_y_scaled_price as u128)
             .unwrap()
-            .checked_div(ctx.accounts.state_account.x_to_y_scaled_price as u128)
+            .checked_div(StateAccount::PRICE_SCALE_FACTOR)
             .unwrap() as u64;
 
+        // 2. Add spread
         let required_input = (taxed_input as u128)
             .checked_mul(StateAccount::SPREAD_SCALE_FACTOR)
             .unwrap()
@@ -33,7 +42,7 @@ pub fn swap_exact_out(
             return err!(WasabiError::UserInsufficientBalance);
         }
 
-        // transfer <calculated_y_amount> from user to pool
+        // transfer <required_input> of y from user to vault
         transfer_user_to_vault(
             ctx.accounts.user_token_y_acct.to_account_info(),
             ctx.accounts.vault_token_y_acct.to_account_info(),
@@ -42,7 +51,7 @@ pub fn swap_exact_out(
             ctx.accounts.token_program.to_account_info(),
         )?;
 
-        // transfer <provided_x_amount> from pool to user
+        // transfer <output_amount> of x from vault to user
         let transfer_accounts = anchor_spl::token::Transfer {
             from: ctx.accounts.vault_token_x_acct.to_account_info(),
             to: ctx.accounts.user_token_x_acct.to_account_info(),
@@ -64,13 +73,17 @@ pub fn swap_exact_out(
         );
         anchor_spl::token::transfer(cpi_ctx, output_amount)?;
     } else {
+        // Output from vault is Y
+        // User puts in X
+
+        // 1. Calculate base input (X) derived from output (Y) / Price (Y/X)
         let taxed_input = (output_amount as u128)
-            .checked_mul(ctx.accounts.state_account.x_to_y_scaled_price as u128)
+            .checked_mul(StateAccount::PRICE_SCALE_FACTOR)
             .unwrap()
-            .checked_div(StateAccount::PRICE_SCALE_FACTOR)
+            .checked_div(ctx.accounts.state_account.x_to_y_scaled_price as u128)
             .unwrap() as u64;
 
-        // Math looks weird but is derived from the reverse seen in swap_exact_in
+        // 2. Add spread
         let required_input = (taxed_input as u128)
             .checked_mul(StateAccount::SPREAD_SCALE_FACTOR)
             .unwrap()
@@ -91,7 +104,7 @@ pub fn swap_exact_out(
             return err!(WasabiError::UserInsufficientBalance);
         }
 
-        // transfer <calculated_x_amount> from user to pool
+        // transfer <required_input> of x from user to vault
         transfer_user_to_vault(
             ctx.accounts.user_token_x_acct.to_account_info(),
             ctx.accounts.vault_token_x_acct.to_account_info(),
@@ -100,7 +113,7 @@ pub fn swap_exact_out(
             ctx.accounts.token_program.to_account_info(),
         )?;
 
-        // transfer <provided_y_amount> from pool to user
+        // transfer <output_amount> of y from vault to user
         let transfer_accounts = anchor_spl::token::Transfer {
             from: ctx.accounts.vault_token_y_acct.to_account_info(),
             to: ctx.accounts.user_token_y_acct.to_account_info(),
@@ -121,6 +134,12 @@ pub fn swap_exact_out(
             signer_seeds,
         );
         anchor_spl::token::transfer(cpi_ctx, output_amount)?;
+    }
+
+    // Check expiration
+    let end_time = Clock::get()?.unix_timestamp;
+    if end_time - start_time > ctx.accounts.state_account.tx_exp_duration {
+        return err!(WasabiError::ExpirationError);
     }
 
     // return

@@ -113,7 +113,7 @@ describe("anchor_project", () => {
 
       // Call the TS type's init() method
       await program.methods
-        .init(SPREAD_BPS)
+        .init(SPREAD_BPS, new anchor.BN(60))
         .accounts({
           user: user.publicKey,
           tokenXMint: mintX,

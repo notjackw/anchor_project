@@ -15,6 +15,9 @@ pub fn swap_exact_in(
     input_is_x: bool,
     min_out_amount: u64,
 ) -> Result<()> {
+    // Start timer
+    let start_time = Clock::get()?.unix_timestamp;
+
     // This was a common check across codebases that I saw:
     // If input_amount exceeds user's balance, transfer their balance instead.
     let input_amount = if input_is_x && input_amount > ctx.accounts.user_token_x_acct.amount {
@@ -47,10 +50,11 @@ pub fn swap_exact_in(
 
         // use u128 during calcs to prevent overflow during mul
         // calculate amount of y
+        // Price is Y per X, so Y = X * Price
         let mut calculated_y_amount: u64 = (input_amount as u128)
-            .checked_mul(StateAccount::PRICE_SCALE_FACTOR)
+            .checked_mul(ctx.accounts.state_account.x_to_y_scaled_price as u128)
             .unwrap()
-            .checked_div(ctx.accounts.state_account.x_to_y_scaled_price as u128)
+            .checked_div(StateAccount::PRICE_SCALE_FACTOR)
             .unwrap() as u64;
         // apply spread to y
         calculated_y_amount -= (calculated_y_amount as u128)
@@ -97,10 +101,11 @@ pub fn swap_exact_in(
 
         // use u128 during calcs to prevent overflow during mul
         // calculate amount of x
+        // Price is Y per X, so X = Y / Price
         let mut calculated_x_amount: u64 = (input_amount as u128)
-            .checked_mul(ctx.accounts.state_account.x_to_y_scaled_price as u128)
+            .checked_mul(StateAccount::PRICE_SCALE_FACTOR)
             .unwrap()
-            .checked_div(StateAccount::PRICE_SCALE_FACTOR)
+            .checked_div(ctx.accounts.state_account.x_to_y_scaled_price as u128)
             .unwrap() as u64;
         // apply spread to x
         calculated_x_amount -= (calculated_x_amount as u128)
@@ -135,6 +140,12 @@ pub fn swap_exact_in(
             signer_seeds,
         );
         anchor_spl::token::transfer(cpi_ctx, calculated_x_amount)?;
+    }
+
+    // Check expiration
+    let end_time = Clock::get()?.unix_timestamp;
+    if end_time - start_time > ctx.accounts.state_account.tx_exp_duration {
+        return err!(WasabiError::ExpirationError);
     }
 
     // return

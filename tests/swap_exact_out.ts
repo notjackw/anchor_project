@@ -34,7 +34,7 @@ describe("Swap Exact Out", () => {
 
   const SPREAD_BPS = new anchor.BN(500); // 5%
   const PRICE_SCALE = new anchor.BN(1_000_000);
-  const INITIAL_PRICE = PRICE_SCALE; // 1:1
+  const INITIAL_PRICE = new anchor.BN(2_000_000); // 2 Y per 1 X
 
   // Run this before all tests in this suite
   before(async () => {
@@ -107,7 +107,7 @@ describe("Swap Exact Out", () => {
 
     // 6. Initialize Program
     await program.methods
-      .init(SPREAD_BPS)
+      .init(SPREAD_BPS, new anchor.BN(60))
       .accounts({
         user: user.publicKey,
         tokenXMint: mintX,
@@ -117,7 +117,7 @@ describe("Swap Exact Out", () => {
 
     // 7. Update Price to 1:1 (Initial is 0, need valid price for swap)
     await program.methods
-      .updateParams(INITIAL_PRICE, null)
+      .updateParams(INITIAL_PRICE, null, null)
       .accounts({
         tokenXMint: mintX,
         tokenYMint: mintY,
@@ -144,11 +144,12 @@ describe("Swap Exact Out", () => {
   });
 
   it("Test 1: Swaps Exact Out (output value X)", async () => {
-    // Price is 1:1, Spread is 5% (500bps)
-    // Output 1000 X
-    // User pays: 1000 X / (1 - 0.05) ~= 1052.63 Y
+    // Price is 2:1 (2Y per 1X)
+    // Desired Output: 1,000,000 X (1 X)
+    // Base Input Required: 1,000,000 X * 2 Y/X = 2,000,000 Y
+    // Slippage/Spread (Applied to Input): 2,000,000 / (1 - 0.05) = 2,105,263 Y
     const outputAmount = new anchor.BN(1_000_000); // 1.0 X
-    const userMaxInAmount = new anchor.BN(2_000_000); // Allow lots of slippage
+    const userMaxInAmount = new anchor.BN(2_200_000); // Allow lots of slippage
     const outputIsX = true;
 
     const userXBefore = (await getAccount(provider.connection, userTokenX))
@@ -176,16 +177,17 @@ describe("Swap Exact Out", () => {
 
     // X increased by 1_000_000 (Exact Out)
     assert.ok(new anchor.BN(Number(userXAfter)).sub(new anchor.BN(Number(userXBefore))).eq(outputAmount));
-    // Y decreased by > 1_000_000
-    assert.ok(Number(userYBefore) - Number(userYAfter) > Number(outputAmount));
+    // Y decreased by exactly 2,105,263
+    assert.equal(Number(userYBefore) - Number(userYAfter), 2_105_263, "ExactOut X->Y input calc mismatch");
   });
 
   it("Test 2: Swaps Exact Out (output value Y)", async () => {
-    // Price is 1:1, Spread is 5% (500bps)
-    // Output 1000 Y
-    // User pays: 1000 X / (1 - 0.05) ~= 1052.63 X
+    // Price is 2:1 (2Y per 1X)
+    // Desired Output: 1,000,000 Y (1 Y)
+    // Base Input Required: 1,000,000 Y / 2 = 500,000 X
+    // Slippage/Spread: 500,000 / 0.95 = 526,315 X
     const outputAmount = new anchor.BN(1_000_000);
-    const userMaxInAmount = new anchor.BN(2_000_000);
+    const userMaxInAmount = new anchor.BN(600_000);
     const outputIsX = false;
 
     const userXBefore = (await getAccount(provider.connection, userTokenX))
@@ -213,7 +215,7 @@ describe("Swap Exact Out", () => {
 
     // Y increased by 1_000_000 (Exact Out)
     assert.ok(new anchor.BN(Number(userYAfter)).sub(new anchor.BN(Number(userYBefore))).eq(outputAmount));
-    // X decreased bx > 1_000_000 (typo copy from swap_exact_in)
-    assert.ok(Number(userXBefore) - Number(userXAfter) > Number(outputAmount));
+    // X decreased by exactly 526,315
+    assert.equal(Number(userXBefore) - Number(userXAfter), 526_315, "ExactOut Y->X input calc mismatch");
   });
 });

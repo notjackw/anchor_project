@@ -34,7 +34,7 @@ describe("Swap Exact In", () => {
 
   const SPREAD_BPS = new anchor.BN(500); // 5%
   const PRICE_SCALE = new anchor.BN(1_000_000);
-  const INITIAL_PRICE = PRICE_SCALE; // 1:1
+  const INITIAL_PRICE = new anchor.BN(2_000_000); // 2 Y per 1 X
 
   // Run this before all tests in this suite
   before(async () => {
@@ -107,7 +107,7 @@ describe("Swap Exact In", () => {
 
     // 6. Initialize Program
     await program.methods
-      .init(SPREAD_BPS)
+      .init(SPREAD_BPS, new anchor.BN(60))
       .accounts({
         user: user.publicKey,
         tokenXMint: mintX,
@@ -117,7 +117,7 @@ describe("Swap Exact In", () => {
 
     // 7. Update Price to 1:1 (Initial is 0, need valid price for swap)
     await program.methods
-      .updateParams(INITIAL_PRICE, null)
+      .updateParams(INITIAL_PRICE, null, null)
       .accounts({
         tokenXMint: mintX,
         tokenYMint: mintY,
@@ -145,11 +145,13 @@ describe("Swap Exact In", () => {
 
   // Test 1: Input is X
   it("Test 1: Swaps Exact In (input is X)", async () => {
-    // Price is 1:1, Spread is 5% (500bps)
-    // Input 1000 X
-    // Output should be: 1000 Y - 5% = 950 Y
+    // Price is 2:1 (2Y per 1X), Spread is 5% (500bps)
+    // Input 1000000 X (1 X)
+    // Output should be: 2000000 Y (2 Y)
+    // Fees: 2000000 * 5% = 100000 Y
+    // Net Output: 1900000 Y
     const inputAmount = new anchor.BN(1_000_000);
-    const userMinOutAmount = new anchor.BN(900_000); // Expect 950_000
+    const userMinOutAmount = new anchor.BN(1_800_000); // Expect 1_900_000
     const inputIsX = true;
 
     const userXBefore = (await getAccount(provider.connection, userTokenX))
@@ -177,16 +179,18 @@ describe("Swap Exact In", () => {
 
     // X decreased by 1_000_000
     assert.ok(new anchor.BN(Number(userXBefore)).sub(new anchor.BN(Number(userXAfter))).eq(inputAmount));
-    // Y increased by ~950_000
-    assert.ok(Number(userYAfter) > Number(userYBefore));
+    // Y increased by exactly 1,900,000
+    assert.equal(Number(userYAfter), Number(userYBefore) + 1_900_000, "X->Y swap output incorrect");
   });
 
   it("Test 2: Swaps Exact In (input is Y)", async () => {
-    // Price is 1:1, Spread is 5% (500bps)
-    // Input 1000 Y
-    // Output should be: 1000 X - 5% = 950 X
+    // Price is 2:1 (2Y per 1X), Spread is 5% (500bps)
+    // Input 1000000 Y (1 Y)
+    // Output should be: 500000 X (0.5 X)
+    // Fees: 500000 * 5% = 25000 X
+    // Net Output: 475000 X
     const inputAmount = new anchor.BN(1_000_000);
-    const userMinOutAmount = new anchor.BN(900_000); // Expect 950_000
+    const userMinOutAmount = new anchor.BN(450_000); // Expect 475_000
     const inputIsX = false;
 
     const userXBefore = (await getAccount(provider.connection, userTokenX))
@@ -214,7 +218,7 @@ describe("Swap Exact In", () => {
 
     // Y decreased by 1_000_000
     assert.ok(new anchor.BN(Number(userYBefore)).sub(new anchor.BN(Number(userYAfter))).eq(inputAmount));
-    // X increased bx 950_000
-    assert.ok(Number(userXAfter) > Number(userXBefore));
+    // X increased by exactly 475,000
+    assert.equal(Number(userXAfter), Number(userXBefore) + 475_000, "Y->X swap output incorrect");
   });
 });

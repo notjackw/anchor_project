@@ -21,7 +21,7 @@ describe("Update Params", () => {
 
   const SPREAD_BPS = new anchor.BN(500); // 5%
   const PRICE_SCALE = new anchor.BN(1_000_000);
-  const INITIAL_PRICE = PRICE_SCALE; // 1:1
+  const INITIAL_PRICE = new anchor.BN(2_000_000); // 2:1
 
   before(async () => {
     // 1. Create Mints
@@ -49,7 +49,7 @@ describe("Update Params", () => {
 
     // 3. Initialize Program
     await program.methods
-      .init(SPREAD_BPS)
+      .init(SPREAD_BPS, new anchor.BN(60))
       .accounts({
         user: user.publicKey,
         tokenXMint: mintX,
@@ -62,7 +62,7 @@ describe("Update Params", () => {
     try {
       // Update price to 1:1 using the new instruction
       await program.methods
-        .updateParams(INITIAL_PRICE, null)
+        .updateParams(INITIAL_PRICE, null, null)
         .accounts({
           tokenXMint: mintX,
           tokenYMint: mintY,
